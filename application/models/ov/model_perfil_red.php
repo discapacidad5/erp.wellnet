@@ -12,23 +12,38 @@ class model_perfil_red extends CI_Model
 	
 	function datos_perfil($id)
 	{
-		$q=$this->db->query('
-			SELECT profile.keyword keyword, (select email from users where id=profile.user_id) email, profile.id_edo_civil, profile.user_id, profile.nombre nombre, profile.apellido apellido,
-			profile.fecha_nacimiento nacimiento, profile.id_estudio id_estudio,
-			profile.id_ocupacion id_ocupacion,
-			profile.id_tiempo_dedicado id_tiempo_dedicado,
-			profile.id_fiscal id_fiscal,
-			sexo.descripcion sexo,
-			edo_civil.descripcion edo_civil,
-			estilos.bg_color, estilos.btn_1_color, estilos.btn_2_color
-			from user_profiles profile
-			left join cat_sexo sexo
-			on profile.id_sexo=sexo.id_sexo
-			left join estilo_usuario estilos on
-			profile.user_id=estilos.id_usuario
-			left join cat_edo_civil edo_civil on
-			profile.id_edo_civil=edo_civil.id_edo_civil
-			where profile.user_id='.$id);
+		$q=$this->db->query('SELECT 
+							    `profile`.keyword keyword,
+							    (select 
+							            email
+							        from
+							            users
+							        where
+							            id = `profile`.user_id) email,
+							    `profile`.id_edo_civil,
+							    `profile`.user_id,
+							    `profile`.nombre nombre,
+							    `profile`.apellido apellido,
+							    `profile`.fecha_nacimiento nacimiento,
+							    `profile`.id_estudio id_estudio,
+							    `profile`.id_ocupacion id_ocupacion,
+							    `profile`.id_tiempo_dedicado id_tiempo_dedicado,
+							    `profile`.id_fiscal id_fiscal,
+							    sexo.descripcion sexo,
+							    edo_civil.descripcion edo_civil,
+							    estilos.bg_color,
+							    estilos.btn_1_color,
+							    estilos.btn_2_color
+							from
+							    user_profiles `profile`
+							        left join
+							    cat_sexo sexo ON `profile`.id_sexo = sexo.id_sexo
+							        left join
+							    estilo_usuario estilos ON `profile`.user_id = estilos.id_usuario
+							        left join
+							    cat_edo_civil edo_civil ON `profile`.id_edo_civil = edo_civil.id_edo_civil
+							where
+							    `profile`.user_id = '.$id);
 		return $q->result();
 	}
 	function tipo_fiscal()
@@ -425,6 +440,22 @@ class model_perfil_red extends CI_Model
 		return  $q->result();
 	}
 	
+	function get_directos_by_id_ultimos_cinco($id)
+	{
+		$q=$this->db->query("select U.id, U.username, U.email,UP.nombre, UP.apellido, CTU.descripcion ,CEA.descripcion estatus , AF.directo ,
+	
+			(select distinct tr.nombre from tipo_red tr where tr.id in (select af.id_red from afiliar af where af.id_red=  AF.id_red)) as redes
+	
+				from users U, user_profiles UP, cat_tipo_usuario CTU, cat_estatus_afiliado CEA ,afiliar AF
+	
+				where U.id = UP.user_id and UP.user_id = AF.id_afiliado and AF.directo = ".$id."
+	
+				and CTU.id_tipo_usuario = UP.id_tipo_usuario and CEA.id_estatus = UP.id_estatus and UP.id_tipo_usuario = 2
+	
+				order by   U.id , AF.lado asc,(U.id) limit 5");
+		return  $q->result();
+	}
+	
 	function get_tabla()
 	{
 		$q=$this->db->query("select U.id, U.username, U.email,UP.nombre, UP.apellido, CTU.descripcion ,CEA.descripcion estatus , 
@@ -561,7 +592,7 @@ order by (U.id);");
 	
 	function use_keyword()
 	{
-		$q=$this->db->query("select * from user_profiles where keyword like '".$_POST['keyword']."'");
+		$q=$this->db->query("select * from user_profiles where keyword = '".$_POST['keyword']."'");
 		return $q->result();
 	}
 	function telefonos($id)
@@ -595,7 +626,7 @@ order by (U.id);");
 		$this->db->query("delete from cross_tel_user where id_user=".$id);
 		$this->db->query("delete from cross_dir_user where id_user=".$id);
 
-		if($_POST["fijo"])
+		if(isset($_POST["fijo"]))
 		{
 			foreach ($_POST["fijo"] as $fijo)
 			{
@@ -608,7 +639,7 @@ order by (U.id);");
 	            $this->db->insert("cross_tel_user",$dato_tel);
 			}
 		}
-		if($_POST["movil"])
+		if(isset($_POST["movil"]))
 		{
 			foreach ($_POST["movil"] as $movil)
 			{
@@ -632,9 +663,25 @@ order by (U.id);");
             );
             $this->db->insert("cross_dir_user",$dato_dir);
 
-        $this->db->query('update users set email="'.$_POST['email'].'" where id='.$id);
-		$this->db->query("update user_profiles set id_sexo=".$_POST['sexo'].", id_fiscal='".$_POST['tipo_fiscal']."', keyword='".$_POST['rfc']."' ,id_edo_civil='".$_POST['civil']."', id_estudio=".$_POST['estudios'].", id_ocupacion=".$_POST['ocupacion']." , id_tiempo_dedicado=".$_POST['tiempo_dedicado']." ,nombre='".$_POST['nombre']."',apellido='".$_POST['apellido']."',fecha_nacimiento='".$_POST['nacimiento']."' where user_id=".$id);
-		$this->db->query("update estilo_usuario set bg_color='".$_POST['bg_color']."', btn_1_color='".$_POST['color_1']."', btn_2_color='".$_POST['color_2']."' where id_usuario=".$id);
+        $this->db->query ( 'update users set email="' . $_POST ['email'] . '" where id=' . $id );
+		$this->db->query ( "update user_profiles 
+										set id_sexo=" . $_POST ['sexo'] 
+										. ", id_fiscal='" . $_POST ['tipo_fiscal'] 
+										. "', keyword='" . $_POST ['rfc'] 
+										. "' ,id_edo_civil='" . $_POST ['civil'] 
+										. "', id_estudio=" . $_POST ['estudios'] 
+										. ", id_ocupacion=" . $_POST ['ocupacion'] 
+										. " , id_tiempo_dedicado=" . $_POST ['tiempo_dedicado'] 
+										. " ,nombre='" . $_POST ['nombre'] 
+										. "',apellido='" . $_POST ['apellido'] 
+										. "',fecha_nacimiento='" . $_POST ['nacimiento']. "' 
+										where user_id=" . $id );
+		$this->db->query ( "update estilo_usuario 
+								set bg_color='" . $_POST ['bg_color'] 
+								. "', btn_1_color='" . $_POST ['color_1'] 
+								. "', btn_2_color='" . $_POST ['color_2'] . "' 
+								where id_usuario=" . $id );
+		$this->actualizar_cuenta_banco($id);
 	}
 	function cp()
 	{
@@ -712,6 +759,44 @@ order by (U.id);");
 		return $q->result();
 	}
 	
+	function val_cuenta_banco($id)
+	{
+		$val=$this->get_cuenta_banco($id);
+		if(!$val){
+			$dato=array(
+					"id_user" =>	$id
+			);
+			$this->db->insert("cross_user_banco",$dato);
+			$val=$this->get_cuenta_banco($id);
+		}
+		return $val;
+	}
+	
+	function get_cuenta_banco($id)
+	{
+		$q=$this->db->query("select * from cross_user_banco where id_user=".$id." and estatus ='ACT'");
+		return $q->result();
+	}
+	
+	function actualizar_cuenta_banco($id)
+	{
+		$dato=array(
+				"cuenta"     => $_POST['c_cuenta'] ? $_POST['c_cuenta'] : "Your account",
+				"titular"     		=> $_POST['c_titular'] ? $_POST['c_titular'] : "You",
+				"banco"       		=> $_POST['c_banco'] ? $_POST['c_banco'] : "Your bank",
+				"pais"         		=> $_POST['c_pais'] ? $_POST['c_pais'] : "COL",
+				"swift"      		=> $_POST['c_swift'],
+				"otro"         		=> $_POST['c_otro'] ,
+				"clabe"       		=> $_POST['c_clabe'] ,
+				"dir_postal"        => $_POST['c_postal']
+		);
+	
+		$this->db->where('id_user', $id);
+		$this->db->update('cross_user_banco', $dato);
+	
+		return true;
+	}
+	
 	function ConsultarIdPadre($id , $id_red_padre){
 		$q = $this->db->query("select debajo_de,lado from afiliar where id_afiliado=".$id." and id_red = ".$id_red_padre." group by debajo_de");
 		$id_padre = $q->result();
@@ -724,6 +809,11 @@ order by (U.id);");
 		return $id_padre[0]->debajo_de;
 	}
 	
+	function ConsultarPadres($id ){
+		$q = $this->db->query("select debajo_de from afiliar where id_afiliado=".$id);
+		$id_padre = $q->result();
+		return $id_padre[0]->debajo_de;
+	}
 
 	function Consultar_nivel_red($id_user){
 		$q = $this->db->query("select u.user_id,u.nivel_en_red from user_profiles u
@@ -797,14 +887,24 @@ order by (U.id);");
 	}
 	
 	function kill_afiliado($id){
-		$this->db->query("delete from afiliar where id_afiliado = ".$id);
-		$this->db->query("delete from user_profiles where user_id = ".$id);
 		$this->db->query("delete from users where id = ".$id);
-		$this->db->query("delete from red where id_usuario = ".$id);
+		$this->db->query("delete from user_profiles where user_id not in (select id from users)");
+		$this->db->query("delete from afiliar where id_afiliado not in (select id from users)");
+		$this->db->query("delete from cross_perfil_usuario where id_user not in (select id from users)");
+		$this->db->query("delete from estilo_usuario where id_usuario not in (select id from users)");
+		$this->db->query("delete from coaplicante where id_user not in (select id from users)");
+		$this->db->query("delete from cross_tel_user where id_user not in (select id from users)");
+		$this->db->query("delete from cross_dir_user where id_user not in (select id from users)");
+		$this->db->query("delete from billetera where id_user not in (select id from users)");
+		$this->db->query("delete from cross_rango_user where id_user not in (select id from users)");
+		$this->db->query("delete from cross_img_user where id_user not in (select id from users)");
+		$this->db->query("delete from cat_img where id_img not in (select id_img from cross_img_user union select id_cat_imagen from cross_merc_img)");
+		//$this->db->query("delete from red where id_usuario = ".$id);
+		return true;
 	}
 	function kill_afiliadonred($id,$red){
 		$this->db->query("delete from afiliar where id_afiliado = ".$id." and id_red = ".$red);
-		$this->db->query("delete from red where id_usuario = ".$id." and id_red = ".$red);
+		//$this->db->query("delete from red where id_usuario = ".$id." and id_red = ".$red);
 	}
 	
 	function ocupado($temp){

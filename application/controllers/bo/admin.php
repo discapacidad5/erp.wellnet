@@ -813,12 +813,11 @@ class admin extends CI_Controller
 			
 			$datos = $this->model_admin->traer_foto($sku);
 			
-			if(unlink($_SERVER['DOCUMENT_ROOT'].$datos[0]->url)){
+		/*	if(unlink($_SERVER['DOCUMENT_ROOT'].$datos[0]->url)){
 				//echo "File Deleted.";
-				error_reporting(0);
 			}
+			*/
 			
-			error_reporting(0);
 			$this->model_admin->del_imagen($id_img[0]->id_cat_imagen);
 			
 			

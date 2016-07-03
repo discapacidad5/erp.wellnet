@@ -21,6 +21,7 @@ class compras extends CI_Controller
 		$this->load->model('bo/modelo_historial_consignacion');
 		$this->load->model('bo/model_mercancia');
 		$this->load->model('bo/model_admin');
+		$this->load->model('bo/model_bonos');
 		$this->load->model('model_user_webs_personales');
 		$this->load->model('model_comprador');
 		$this->load->model('model_carrito_temporal');
@@ -103,7 +104,6 @@ function index()
 	
 	function carrito()
 	{
-		//echo "dentro de carrito";
 		
 		if (!$this->tank_auth->is_logged_in())
 		{																		// logged in
@@ -330,9 +330,11 @@ function index()
 		
 		$paypal  = $this->modelo_pagosonline->val_paypal();
 		$payulatam  = $this->modelo_pagosonline->val_payulatam();
+		$tucompra  = $this->modelo_pagosonline->val_tucompra();
 		
 		$this->template->set('paypal',$paypal);
 		$this->template->set('payulatam',$payulatam);
+		$this->template->set('tucompra',$tucompra);
 		
 		$this->template->set_theme('desktop');
 		$this->template->set_layout('website/main');
@@ -414,6 +416,48 @@ function index()
 		}	
 	}
 	
+	function RegistrarVentaTucompra(){ //WOWCONEXION
+	
+		$id = $_POST['campoExtra1'];
+		$id_pago = $_POST['campoExtra2'];
+		$identificado_transacion = $_POST['firmaTuCompra'];
+		$fecha=date("Y-m-d");
+		$referencia = $_POST['codigoFactura'];
+		$metodo_pago = $_POST['metodoPago'];
+		$estado = $_POST['transaccionAprobada'];
+		$respuesta = $_POST['numeroTransaccion'];
+		$moneda = "COP";
+		$medio_pago = $_POST['metodoPago'];
+	
+		if(!$id){
+			return false;
+			exit();
+		}
+	
+		if($estado=="1"){
+				
+	
+			$id_venta = $this->modelo_compras->registrar_venta_pago_online($id,'TUCOMPRA',$fecha);
+				
+			$this->modelo_compras->registrar_pago_online
+			($id_venta,$id,$identificado_transacion,$fecha,$referencia,
+					$metodo_pago,$estado,$respuesta,$moneda,$medio_pago);
+				
+				
+			$contenido_carrito_proceso=$this->modelo_compras->getContenidoCarritoPagoOnlineProceso($id_pago);
+				
+			$contenidoCarrito=json_decode($contenido_carrito_proceso[0]->contenido,true);
+			$carrito=json_decode($contenido_carrito_proceso[0]->carrito,true);
+				
+			$this->registrarFacturaDatosDefaultAfiliado($id,$id_venta);
+			$this->registrarFacturaMercanciaPagoOnline ( $contenidoCarrito,$carrito ,$id_venta);
+			$this->pagarComisionVenta($id_venta,$id);
+			
+			return "OK";
+		}
+	
+	}
+	
 	function RegistrarVentaPayuLatam(){
 	
 		$id = $_POST['extra1'];
@@ -486,6 +530,56 @@ function index()
 	
 	}
 	
+	function RespuestaTucompra(){ //WOWCONEXION
+	
+		if (!$this->tank_auth->is_logged_in())
+		{																		// logged in
+			redirect('/auth');
+		}
+		
+		$a = array(
+			$_POST['campoExtra1'],
+			$_POST['campoExtra2'],
+			$_POST['firmaTuCompra'],
+			date("Y-m-d"),
+			$_POST['codigoFactura'],
+			$_POST['metodoPago'],
+			$_POST['transaccionAprobada'],
+			$_POST['numeroTransaccion'], 
+			"COP",
+			$_POST['metodoPago']				
+		);		
+		
+		if(!$a){
+			return false;
+			exit();
+		}
+		
+		if($a[6]=="1"){
+			
+			//var_dump($a);exit();	
+			$this->cart->destroy();
+			$id=$this->tank_auth->get_user_id();
+			$usuario=$this->general->get_username($id);
+			$style=$this->general->get_style($id);
+				
+			$this->template->set("style",$style);
+			$this->template->set("usuario",$usuario);
+				
+			$this->template->set_theme('desktop');
+			$this->template->set_layout('website/main');
+			$this->template->set_partial('header', 'website/ov/header');
+			$this->template->set_partial('footer', 'website/ov/footer');
+			$this->template->build('website/ov/compra_reporte/transaccionExitosa');
+			
+			//return "OK";
+			
+			return true;
+		}
+	
+		redirect('/');
+	}
+	
 	function RespuestaPayuLatam(){
 		
 		if (!$this->tank_auth->is_logged_in())
@@ -540,6 +634,78 @@ function index()
 			return true;
 		}
 			redirect('/');
+	}
+	
+	function pagarVentaTucompra(){ //WOWCONEXION
+	
+		if (!$this->tank_auth->is_logged_in())
+		{																		// logged in
+			redirect('/auth');
+		}
+	
+		if(!$this->cart->contents()){
+			echo "<script>window.location='/ov/dashboard';</script>";
+			echo "La compra no puedo ser registrada";
+			return 0;
+		}
+	
+		$actual_link = "http://$_SERVER[HTTP_HOST]";
+	
+		$id=$this->tank_auth->get_user_id();
+		$usuario=$this->general->get_username($id);
+		$email = $this->general->get_email($id);
+	
+	
+		$contenidoCarrito=$this->get_content_carrito ();
+		$carritoCompras=$this->cart->contents();
+	
+		$id_pago_proceso = $this->modelo_compras->registrar_pago_online_proceso($id,json_encode($contenidoCarrito),json_encode($carritoCompras));
+	
+		$descripcion="";
+		foreach ($contenidoCarrito["compras"] as $mercancia){
+			$descripcion.=" ".$mercancia["nombre"];
+		}
+	
+		$totalCarrito=$this->get_valor_total_contenido_carrito($contenidoCarrito);
+	
+	
+		$tucompra  = $this->modelo_pagosonline->val_tucompra();
+	
+		$time = time();
+		$codigoFactura = $id_pago_proceso;
+		$codigoAutorizacion = md5("NetSoft".$time.$id_pago_proceso);
+		
+		//$firma = md5($tucompra[0]->apykey."~".$tucompra[0]->id_comercio."~NetSoft".$time."~".$totalCarrito."~".$tucompra[0]->moneda);
+		
+		$firma = md5($tucompra[0]->llave.";".$codigoFactura.";".$totalCarrito."".$tucompra[0]->moneda.";".$codigoAutorizacion);
+		$id_transacion = $firma;
+	
+		$link="https://demo2.tucompra.net/tc/app/inputs/compra.jsp";
+	
+		if($tucompra[0]->test!=1)
+			$link="https://gateway.tucompra.com.co/tc/app/inputs/compra.jsp";
+	
+			echo'
+			<h2 class="semi-bold">¿ Esta seguro de realizar el pago ?</h2>
+			<form method="post" action="'.$link.'">'
+	//		  .'<input name="merchantId"    type="hidden"  value="'.$tucompra[0]->id_comercio.'">'
+			  .'<input name="usuario"     type="hidden"  value="'.$tucompra[0]->cuenta.'" >'
+			  .'<input name="descripcionFactura"   type="hidden"  value="'.$descripcion.'"  >'
+			  .'<input name="factura" type="hidden"  value="NetSoft'.$time.$id_pago_proceso.'" >'
+			  .'<input name="valor"         type="hidden"  value="'.$totalCarrito.'"   >'
+			  .'<input name="nombreComprador"  type="hidden"  value="'.$usuario[0]->nombre." ".$usuario[0]->apellido.'"  >'
+			  .'<input name="documentoComprador" type="hidden"  value="'.$id.'" >'
+			  .'<input name="tipoMoneda"      type="hidden"  value="'.$tucompra[0]->moneda.'" >'
+			  .'<input name="signature"     type="hidden"  value="'.$id_transacion.'"  >'
+	//		  .'<input name="test"          type="hidden"  value="'.$tucompra[0]->test.'" >'
+			  .'<input name="campoExtra1" type="hidden" value="'.$id.'" >'
+			  .'<input name="campoExtra2" type="hidden" value="'.$id_pago_proceso.'" >'
+			  .'<input name="correoComprador" type="hidden"  value="'.$email[0]->email.'" >'
+			  .'<input name="responseUrl"    type="hidden"  value="'.$actual_link.'/ov/compras/RespuestaTucompra" >'
+			  .'<input name="confirmationUrl"  type="hidden"  value="'.$actual_link.'/ov/compras/RegistrarVentaTucompra" >'
+			  .'<input name="Submit" type="submit"  value="Pagar" class="btn btn-success">
+			</form>';
+	
 	}
 	
 	function pagarVentaPayuLatam(){
@@ -868,8 +1034,12 @@ function index()
 			else $cantidad_mujeres = $cantidad_mujeres + 1;
 		}
 		$cantidad_total_sexo = $cantidad_hombres+$cantidad_mujeres;
+
+		if($cantidad_total_sexo==0)
+			$porcentaje_total=0;
+		else
+			$porcentaje_total = 100/$cantidad_total_sexo;
 		
-		$porcentaje_total = 100/$cantidad_total_sexo;
 		$porcentaje_de_hombres = round($porcentaje_total*$cantidad_hombres,1, PHP_ROUND_HALF_UP);
 		$porcentaje_de_mujeres = round($porcentaje_total*$cantidad_mujeres,1, PHP_ROUND_HALF_UP);
 		
@@ -982,7 +1152,11 @@ function index()
 		}
 		$cantidad_total_estado_civil = $cantidad_solteros +	$cantidad_casados + $cantidad_union_libre + $cantidad_divorciados + $cantidad_viudos;
 		
-		$porcentaje_total_estado_civil = 100/$cantidad_total_estado_civil;
+		if($cantidad_total_estado_civil==0)
+			$porcentaje_total=0;
+		else
+			$porcentaje_total_estado_civil = 100/$cantidad_total_estado_civil;
+		
 		$porcentaje_solteros = round($porcentaje_total_estado_civil*$cantidad_solteros,1, PHP_ROUND_HALF_UP);
 		$porcentaje_casados = round($porcentaje_total_estado_civil*$cantidad_casados,1, PHP_ROUND_HALF_UP);
 		$porcentaje_union_libre = round($porcentaje_total_estado_civil*$cantidad_union_libre,1, PHP_ROUND_HALF_UP);
@@ -1036,20 +1210,156 @@ function index()
 			}
 		}
 		$cantidad_total_tiempo_dedicado = $cantidad_tiempo_completo + $cantidad_medio_tiempo;
+
+		if($porcentaje_total_tiempo_dedicado==0)
+			$porcentaje_total_tiempo_dedicado=0;
+		else
+			$porcentaje_total_tiempo_dedicado = 100/$cantidad_total_sexo;
+
 		
-		$porcentaje_total_tiempo_dedicado = 100/$cantidad_total_sexo;
 		$porcentaje_tiempo_completo = round($porcentaje_total_tiempo_dedicado*$cantidad_tiempo_completo,1, PHP_ROUND_HALF_UP);
 		$porcentaje_medio_tiempo = round($porcentaje_total_tiempo_dedicado*$cantidad_medio_tiempo,1, PHP_ROUND_HALF_UP);
 		
 		$this->template->set("porcentaje_tiempo_completo",$porcentaje_tiempo_completo);
 		$this->template->set("porcentaje_medio_tiempo",$porcentaje_medio_tiempo);
 		
+		
+		$q=$this->db->query("SELECT id, frontal ,profundidad ,nombre FROM tipo_red");
+		$redes=$q->result();
+		
+		$patas=array();
+		
+		foreach ($redes as $red){
+
+			$patas=$this->getCantidadDeAfiliadosPorPatas($patas,$id, $red);
+		}
+
+		$this->template->set("patas",$patas);
+		
+		$total_puntos_red=0;$total_puntos_red_mes=0;$total_ventas_red=0;$total_ventas_red_mes=0;
+		foreach ($patas as $pata){
+			$total_puntos_red=$total_puntos_red+$pata["total_puntos"];
+			$total_puntos_red_mes=$total_puntos_red_mes+$pata["total_puntos_mes"];
+			
+			$total_ventas_red=$total_ventas_red+$pata["total_ventas_red"];
+			$total_ventas_red_mes=$total_ventas_red_mes+$pata["total_ventas_mes"];
+		}
+		
+		$remanentes=array();
+		
+		foreach ($redes as $red){
+			
+			for($i=1; $i<=$red->frontal ;$i++){
+				$q=$this->db->query("SELECT total FROM comisionPuntosRemanentes where id_usuario=".$id." and id_pata=".$i." order by id desc limit 0,1");
+				$totalPata=$q->result();
+				$totalRemanente=0;
+
+				if($totalPata!=NULL)
+					$totalRemanente=$totalPata[0]->total;
+				 
+				$remanente = array(
+						'id_red' => $red->id,
+						'nombre_red' => $red->nombre,
+						'id_pata' => $i,
+						'total'   => $totalRemanente
+				
+				);
+				
+				array_push($remanentes, $remanente);
+
+			}
+		}
+
+		$this->template->set("remanentes",$remanentes);
+		
+		$this->template->set("total_puntos_red",$total_puntos_red);
+		$this->template->set("total_puntos_red_mes",$total_puntos_red_mes);
+		$this->template->set("total_ventas_red",$total_ventas_red);
+		$this->template->set("total_ventas_red_mes",$total_ventas_red_mes);
+
 		$this->template->set_theme('desktop');
         $this->template->set_layout('website/main');
         $this->template->set_partial('header', 'website/ov/header');
         $this->template->set_partial('footer', 'website/ov/footer');
-		$this->template->build('website/ov/compra_reporte/estadisticas');	}
+		$this->template->build('website/ov/compra_reporte/estadisticas');	
+	}
 	
+	
+	private function getCantidadDeAfiliadosPorPatas($patas,$id_afiliado,$red){
+		$frontalidad=$red->frontal;
+		if($red->profundidad==0)
+			$profundidad=0;
+		else
+			$profundidad=($red->profundidad-1);
+		
+		for ($i=1;$i<=$frontalidad;$i++){
+		
+			// Afiliados Totales
+			$posicionEnRed=$i-1;
+			$usuario=new $this->afiliado;
+			$usuario->setIdAfiliadosRed(array());
+			$id_hijo=$usuario->getAfiliadoDirectoPorPosicion($id_afiliado,$red->id,$posicionEnRed);
+			
+			if($id_hijo==null)
+				$total_afiliados=0;
+			else{
+				$usuario->getAfiliadosDebajoDe($id_hijo,$red->id,"RED",$profundidad,$profundidad);
+				$total_afiliados=(count($usuario->getIdAfiliadosRed())+1);
+			}
+			
+			//Puntos Totales
+			$usuario=new $this->afiliado;
+			$puntosHijo=$usuario->getPuntosTotalesPersonalesIntervalosDeTiempo($id_hijo,$red->id,"0","0","2016-01-01","2026-01-01");
+			$puntosRedHijo=$usuario->getVentasTodaLaRedEquilibrada($id_hijo,$red->id,0,$profundidad,"2016-01-01","2026-01-01",$profundidad,"0","0","PUNTOS");
+			$puntosTotales=$puntosHijo[0]->total+$puntosRedHijo;
+				
+			$calculador=new $this->calculador_bono;
+		
+				
+			$inicioMes=$calculador->getInicioMes(date('Y-m-d'));
+			$finMes=$calculador->getFinMes(date('Y-m-d'));
+			//Puntos Mes
+			$usuario=new $this->afiliado;
+			$puntosHijoMes=$usuario->getPuntosTotalesPersonalesIntervalosDeTiempo($id_hijo,$red->id,"0","0",$inicioMes,$finMes);
+			$puntosRedHijoMes=$usuario->getVentasTodaLaRedEquilibrada($id_hijo,$red->id,0,$profundidad,$inicioMes,$finMes,$profundidad,"0","0","PUNTOS");
+			$puntosTotalesMes=$puntosHijoMes[0]->total+$puntosRedHijoMes;
+		
+			//ventas Totales
+			$usuario=new $this->afiliado;
+			$ventasHijo=$usuario->getValorTotalDelasComprasPersonalesIntervalosDeTiempo($id_hijo,$red->id,"0","0","2016-01-01","2026-01-01");
+			$ventasRedHijo=$usuario->getVentasTodaLaRedEquilibrada($id_hijo,$red->id,0,$profundidad,"2016-01-01","2026-01-01",$profundidad,"0","0","COSTO");
+			$ventasTotales=$ventasHijo[0]->total+$ventasRedHijo;
+				
+			$calculador=new $this->calculador_bono;
+		
+				
+			$inicioMes=$calculador->getInicioMes(date('Y-m-d'));
+			$finMes=$calculador->getFinMes(date('Y-m-d'));
+			//ventas Mes
+			$usuario=new $this->afiliado;
+			$ventasHijoMes=$usuario->getValorTotalDelasComprasPersonalesIntervalosDeTiempo($id_hijo,$red->id,"0","0",$inicioMes,$finMes);
+				
+			$ventasRedHijoMes=$usuario->getVentasTodaLaRedEquilibrada($id_hijo,$red->id,0,$profundidad,$inicioMes,$finMes,$profundidad,"0","0","COSTO");
+			$ventasTotalesMes=$ventasHijoMes[0]->total+$ventasRedHijoMes;
+		
+			$pata = array(
+					'id_red' => $red->id,
+					'nombre_red' => $red->nombre,
+					'id_pata' => $i,
+					'total_afiliados'   => $total_afiliados,
+					'total_puntos'   => $puntosTotales ,
+					'total_puntos_mes'   => $puntosTotalesMes,
+					'total_ventas_red'   => $ventasTotales ,
+					'total_ventas_mes'   => $ventasTotalesMes
+						
+			);
+		
+			array_push($patas, $pata);
+		}
+
+		return $patas;
+	}
+		
 	function reportes()
 	{
 		if (!$this->tank_auth->is_logged_in()) 
@@ -1183,7 +1493,7 @@ function index()
 		
 		switch ($_POST['tipo']){
 			case 1 	: $this->reporte_afiliados(); break;
-			case 2 	: $this->reporte_compras_usr(); 
+			case 2 	: $this->reporte_compras_usr();  
 						$this->reporte_compras_usr_well(); break;
 			case 3 	: $this->reporte_compras(); 
 						$this->reporte_compras_red_well();break;
@@ -1193,6 +1503,9 @@ function index()
 			case 7 	: $this->reporte_compras_afiliados_todos(); break;
 			case 8 	: $this->reporte_compras_personales(); break;
 			case 9 	: $this->reporte_directos(); break;
+			case 10 	: $this->reporte_afiliados_activos(); break;
+			case 11 	: $this->reporte_afiliados_inactivos(); break;
+			case 12 	: $this->reporte_bonos_afiliados_todos(); break;
 		}
 		
 	}
@@ -1736,6 +2049,96 @@ function index()
 	
 	
 	}
+	
+	function reporte_afiliados_activos()
+	{
+		$id=$this->tank_auth->get_user_id();
+		
+		if (!$this->tank_auth->is_logged_in())
+		{												
+		redirect('/auth');
+		}
+
+		$afiliados=$this->modelo_compras->reporte_afiliados_activos($id,date('Y-m-d'));
+		
+		echo 
+			"<table id='datatable_fixed_column1' class='table table-striped table-bordered table-hover' width='100%'>
+				<thead id='tablacabeza'>
+					<th>ID</th>
+					<th>Usuario</th>
+					<th>Nombre</th>
+					<th>Apellido</th>
+					<th>Email</th>
+					<th>Actividad</th>
+				</thead>
+				<tbody>";
+			foreach($afiliados as $afiliado)
+			{
+					echo "<tr>
+					<td class='sorting_1'>".$afiliado[0]->id."</td>
+					<td>".$afiliado[0]->usuario."</td>
+					<td>".$afiliado[0]->nombre."</td>
+					<td>".$afiliado[0]->apellido."</td>
+					<td>".$afiliado[0]->email."</td>
+					<td><div class='widget-body'>
+						<h2 class='alert alert-success'><i class='fa fa-thumbs-o-up'></i></h2>
+						</div></td>
+				</tr>";
+			}
+				
+			
+			echo "</tbody>
+			</table><tr class='odd' role='row'>";
+		
+		
+		
+	}
+	
+	function reporte_afiliados_inactivos()
+	{
+		$id=$this->tank_auth->get_user_id();
+		
+		if (!$this->tank_auth->is_logged_in())
+		{												
+		redirect('/auth');
+		}
+
+		$afiliados=$this->modelo_compras->reporte_afiliados_inactivos($id,date('Y-m-d'));
+		
+		echo 
+			"<table id='datatable_fixed_column1' class='table table-striped table-bordered table-hover' width='100%'>
+				<thead id='tablacabeza'>
+					<th>ID</th>
+					<th>Usuario</th>
+					<th>Nombre</th>
+					<th>Apellido</th>
+					<th>Email</th>
+					<th>Actividad</th>
+				</thead>
+				<tbody>";
+			foreach($afiliados as $afiliado)
+			{
+					echo "<tr>
+					<td class='sorting_1'>".$afiliado[0]->id."</td>
+					<td>".$afiliado[0]->usuario."</td>
+					<td>".$afiliado[0]->nombre."</td>
+					<td>".$afiliado[0]->apellido."</td>
+					<td>".$afiliado[0]->email."</td>
+					<td><div class='widget-body'>
+						<h2 class='alert alert-danger'><i class='fa fa-thumbs-o-down'></i></h2>
+						</div></td>
+				</tr>";
+			}
+				
+			
+			echo "</tbody>
+			</table><tr class='odd' role='row'>";
+		
+		
+		
+		
+	}
+	
 	function reporte_afiliados_excel()
 	{
 		//load our new PHPExcel library
@@ -2073,6 +2476,84 @@ function index()
 		$objWriter = PHPExcel_IOFactory::createWriter($this->excel, 'Excel5');
 				//force user to download the Excel file without writing it to server's HD
 		$objWriter->save('php://output');
+	}
+	
+	function reporte_bonos_afiliados_todos()
+	{
+		$id=$this->tank_auth->get_user_id();
+	
+		$inicio = $_POST['inicio'];
+		$fin = $_POST['fin'];
+	
+		$redesUsuario=$this->model_tipo_red->cantidadRedesUsuario($id);
+			
+		foreach ($redesUsuario as $redUsuario){
+			$red = $this->model_tipo_red->ObtenerFrontalesRed($redUsuario->id );
+		
+			if($red){
+					
+				if($red[0]->profundidad==0)
+					$this->preOrdenRedProfundidadInfinita($id,$redUsuario->id,$red[0]->frontal);
+					else
+						$this->preOrdenRed($id,$redUsuario->id,$red[0]->frontal,$red[0]->profundidad);
+			}
+		}
+		
+		echo
+		"<table id='datatable_fixed_column1' class='table table-striped table-bordered table-hover' width='100%'>
+				<thead id='tablacabeza'>"
+					."<th>ID historial</th>"
+					."<th>Usuario</th>"
+					."<th data-hide='phone'>Nombre Completo</th>"
+					."<th data-hide='phone,tablet'>Fecha</th>"
+					."<th data-hide='phone,tablet'>Bono</th>"
+					."<th data-hide='phone,tablet'>Valor</th>"
+				."</thead>
+				<tbody>";
+		
+		$total = 0;				
+		
+		foreach ($this->afiliados as $afiliado){
+		
+			$bonos = $this->model_bonos->getBonosPagadosRed($afiliado->id_afiliado,$inicio,$fin);
+						
+			foreach ($bonos as $bono)
+			{					
+					$total += $bono->valor;	
+					
+				echo "<tr>"
+						."<td class='sorting_1'>".$bono->id."</td>"
+						."<td>".$bono->usuario."</td>"
+						."<td>".$bono->afiliado."</td>"
+						."<td> ".$bono->fecha."</td>"
+						."<td> ".$bono->bono."</td>"
+						."<td>$ ".$bono->valor
+						//."|".$total
+						."</td>"
+					."</tr>";
+			}
+		}
+	
+		/*	<td class='sorting_1'></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			</tr>";*/
+		
+		echo "<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td class='sorting_1'><b>TOTAL:</b></td>
+			<td><b> $	".number_format($total, 2)."</b></td>
+			</tr>";
+		
+		echo "</tbody>
+			</table><tr class='odd' role='row'>";
+	
 	}
 	
 	function muestra_mercancia()
@@ -2868,10 +3349,10 @@ function index()
 	}
 	
 	function printMercanciaPorTipoDeRed($mercancia,$tipoMercancia){
-		
+		$imprimir='';
 		for($i=0;$i<sizeof($mercancia);$i++)
 		{
-		echo '	<div class="item col-lg-3 col-md-3 col-sm-3 col-xs-3">
+		$imprimir ='	<div class="item col-lg-3 col-md-3 col-sm-3 col-xs-3">
 					<div class="producto">
 					<a class="" data-toggle="tooltip" data-original-title="Add to Wishlist"  data-placement="left">
 						<i class=""></i>
@@ -2889,7 +3370,14 @@ function index()
 					</label>
 					</section>
 					</div>
-					<div class="price"> <span>$ '.$mercancia[$i]->costo.'</span></div>
+					<div class="price">';
+					if($mercancia[$i]->puntos_comisionables!='0'){
+						$imprimir.='<span style="font-size: 1.5rem;">(Puntos  '.$mercancia[$i]->puntos_comisionables.')</span>';
+					}
+					 
+					$imprimir.='<br>
+					<span>$ '.$mercancia[$i]->costo.'</span>
+					</div>
 					<br>
 					<div class=""> 
 						<a style="font-size: 1.7rem;" class="btn btn-success" onclick="compra_prev('.$mercancia[$i]->id.','.$tipoMercancia.',0)"> 
@@ -2899,6 +3387,7 @@ function index()
 				 	</div>
 				</div>
 				';
+				echo $imprimir;
 
 		}
 	}
@@ -2970,7 +3459,7 @@ function index()
 						codigo_seguridad,estatus) values (".$data['tipo'].",".$id_user.",".$data['banco'].",'".$data['numero']."',
 						'".$fecha."','".$data['titular']."','".$data['codigo']."','".$status."')");
 				$this->db->query("insert into venta (id_user,id_estatus,costo,id_metodo_pago) values (".$id_user.",2,".$this->cart->total().",1)");
-				$venta=mysql_insert_id();
+				$venta=$this->db->insert_id();
 				$puntos=0;
 				foreach ($this->cart->contents() as $items) 
 				{
@@ -3002,7 +3491,7 @@ function index()
 						codigo_seguridad,estatus) values (".$data['tipo'].",".$id_user.",".$data['banco'].",'".$data['numero']."',
 						'".$fecha."','".$data['titular']."','".$data['codigo']."','".$status."')");
 				$this->db->query("insert into autocompra (fecha,id_usuario) values ('".$data['fecha']."',".$id_user.")");
-				$autocompra=mysql_insert_id();
+				$autocompra=$this->db->insert_id();
 				foreach ($this->cart->contents() as $items) 
 				{
 					$this->db->query("insert into cross_autocompra_mercancia values (".$autocompra.",".$items['id'].",".$items['qty'].")");
@@ -3755,9 +4244,13 @@ function index()
 				$this->calcularComisionAfiliado($id_venta,$id_red_mercancia,$costoVenta,$id_afiliado_comprador);
 				
 			}
-
+			
+			
 		}
 	}
+	
+	
+	
 	
 	public function calcularComisionAfiliado($id_venta,$id_red_mercancia,$costoVenta,$id_afiliado){
 	

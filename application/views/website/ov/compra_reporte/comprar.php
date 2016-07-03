@@ -55,7 +55,7 @@
 												</address>
 											</div>
 											<div class="pull-right">
-												<h1 class="font-400">Factura de venta</h1>
+												<h1 class="font-400">Recibo de pago</h1>
 											</div>
 											<div class="clearfix"></div>
 											<br>
@@ -66,7 +66,7 @@
 														<br>
 														<strong>Señor (a). <?php echo $datos_afiliado[0]->nombre." ".$datos_afiliado[0]->apellido;?></strong>
 														<br>
-														<abbr title="Phone">DNI:</abbr> <?php echo $datos_afiliado[0]->keyword;?>
+														<abbr title="Phone">Número de identificación:</abbr> <?php echo $datos_afiliado[0]->keyword;?>
 														<br>
 														<abbr title="Phone">Dirección:</abbr> <?php echo $pais_afiliado[0]->direccion;?>
 														<br>
@@ -76,13 +76,7 @@
 													</address>
 												</div>
 												<div class="col-sm-3">
-													<div>
-														<div>
-															<strong>FACTURA NO :</strong>
-															<span class="pull-right"> #AA-454-4113-00 </span>
-														</div>
-				
-													</div>
+
 													<div>
 														<div class="font-md">
 
@@ -97,7 +91,7 @@
 													<div class="well well-sm  bg-color-darken txt-color-white no-border">
 														<div class="fa-lg">
 															Total :
-															<span class="pull-right">$ <?php echo $this->cart->total(); ?> USD** </span>
+															<span class="pull-right">$ <?php echo $this->cart->total(); ?> ** </span>
 														</div>
 				
 													</div>
@@ -195,7 +189,7 @@
 				
 												<div class="row">
 				
-													<div class="col-sm-7">
+													<div class="col-sm-8">
 														<div class="payment-methods">
 															<h1 class="font-300">Metodos de Pago</h1>
 															<a onclick="consignacion()" style="margin-left: 1rem;" class="btn btn-success txt-color-blueLight">
@@ -211,12 +205,17 @@
 																<img src="/template/img/payment/paypal.png" alt="paypal" height="60" width="80">
 															</a>
 															<?php }?>
+															<?php if($tucompra[0]->estatus=='ACT') {?>
+															<a onclick="tucompra()" style="margin-left: 1rem;" class="btn btn-success txt-color-blueLight">
+																<img src="/template/img/payment/tucompra.png" alt="tucompra" style="background: #fff" height="60" width="160">
+															</a>
+															<?php }?>
 														</div>
 													</div>
 													
 													<div class="col-sm-4">
 														<div class="invoice-sum-total pull-right">
-															<h3><strong>Total a Pagar: <span class="text-success">$ <?php echo $total;?> USD</span></strong></h3>
+															<h3><strong>Total a Pagar: <span class="text-success">$ <?php echo $total;?> </span></strong></h3>
 														</div>
 													</div>
 				
@@ -310,6 +309,31 @@
 						}
 					});
 					
+	}
+
+	function tucompra(){
+		//alert('Medio de Pago en Desarrollo');
+		iniciarSpinner();
+		$.ajax({
+			type:"post",
+			url:"pagarVentaTucompra",
+			success: function(msg){
+				FinalizarSpinner();
+				bootbox.dialog({
+					message: msg,
+					title: "Pago Tu Compra",
+					className: "",
+					buttons: {
+						success: {
+						label: "Cancelar",
+						className: "btn-danger",
+						callback: function() {
+							}
+						}
+					}
+				})
+			}
+		});	
 	}
 
 	function payuLatam(){

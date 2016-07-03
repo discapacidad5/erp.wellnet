@@ -61,6 +61,14 @@
 												</a>
 												</div>
 												<div class="col-sm-2 link">
+												<a href="/bo/titulos">
+													<div class="minh well well-sm txt-color-white text-center link_dashboard" style="background:<?=$style[0]->btn_2_color?>">
+														<i class="fa fa-trophy fa-3x"></i>
+														<h1>Títulos<br/><br/></h1>
+													</div>
+												</a>
+												</div>
+												<div class="col-sm-2 link">
 												<a href="/bo/rangos">
 													<div class="minh well well-sm txt-color-white text-center link_dashboard" style="background:<?=$style[0]->btn_2_color?>">
 														<i class="fa fa-road fa-3x"></i>
@@ -73,14 +81,6 @@
 													<div class="minh well well-sm txt-color-white text-center link_dashboard" style="background:<?=$style[0]->btn_2_color?>">
 														<i class="fa fa-gift fa-3x"></i>
 														<h1>Bonos <br/><br/></h1>
-													</div>
-												</a>
-												</div>
-												<div class="col-sm-2 link">
-												<a href="/bo/planes">
-													<div class="minh well well-sm txt-color-white text-center link_dashboard" style="background:<?=$style[0]->btn_2_color?>">
-														<i class="fa fa-sort-amount-asc fa-3x"></i>
-														<h1>Binarios<br/><br/></h1>
 													</div>
 												</a>
 												</div>

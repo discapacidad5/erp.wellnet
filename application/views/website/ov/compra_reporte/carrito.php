@@ -25,7 +25,7 @@
 <!-- include pace script for automatic web page progress bar  -->
 
 <div id="content">
- <div class="navbar navbar-tshop navbar-fixed-top megamenu" role="navigation" id="cart_cont" style="background: rgb(111, 138, 53)  ! important;">
+ <div class="navbar navbar-tshop navbar-fixed-top megamenu" role="navigation" id="cart_cont" style="background: rgb(78, 104, 26) ! important;">
     <div class="navbar-header">
       <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-cart"> <i style="color : #fff;" class="fa fa-shopping-cart fa-2x"> </i> <span style="color : #fff;" class="cartRespons"> Cart (<?php echo $this->cart->total_items(); ?> ) </span> </button>
       <a style="color : #fff;margin-left:4rem;" class="navbar-brand titulo_carrito" href="/ov/dashboard" > <i class="fa fa-arrow-circle-left"></i> Atras &nbsp;</a> 
@@ -218,24 +218,24 @@
 					<!-- end widget div -->
 					
 				</div>
-				<!--<div class="jarviswidget jarviswidget-color-darken" id="wid-id-2" data-widget-editbutton="false" data-widget-colorbutton="false" data-widget-deletebutton="false" data-widget-fullscreenbutton="false">
+			<!-- 	<div class="jarviswidget jarviswidget-color-darken" id="wid-id-2" data-widget-editbutton="false" data-widget-colorbutton="false" data-widget-deletebutton="false" data-widget-fullscreenbutton="false">
 					<header>
 						<span class="widget-icon"> <i class="fa fa-arrows-v"></i> </span>
 						<h2 class="font-md"><i>Tipos de Mercancia</i></h2>				
-					</header>-->
+					</header> -->
 
 					<!-- widget div-->
 					<div>
 						
 						<!-- widget edit box -->
-						<!--<div class="jarviswidget-editbox">-->
+						<div class="jarviswidget-editbox">
 							<!-- This area used as dropdown edit box -->
 
 						</div>
 						<!-- end widget edit box -->
 						
 						<!-- widget content -->
-						<!--<div class="widget-body">
+						<!-- <div class="widget-body">
 								<h3>Tipos Mercancia</h3>
 								<div class="dropdown">
 								<?php if(isset($mostrarMercancia)){
@@ -258,13 +258,13 @@
 								<?php }?>
 								</div>
 								<br>
-						</div>-->
+						</div> -->
 						<!-- end widget content -->
 						
-					<!--</div>-->
+					</div>
 					<!-- end widget div -->
 					
-				<!--</div>-->
+				<!-- </div>-->
 				<!-- end widget -->
 				<div class="paymentMethodImg"> 
 				<h3>Métodos de pago</h3>

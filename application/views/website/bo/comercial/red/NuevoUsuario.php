@@ -152,7 +152,7 @@
 																</section>
 																<section class="col col-3" id="key">
 																	<label id="key_" class="input"> <i class="icon-prepend fa fa-barcode"></i>
-																		<input id="keyword" onkeyup="check_keyword()" placeholder="DNI" type="text" name="keyword">
+																		<input id="keyword" onkeyup="check_keyword()" placeholder="Número de identificación" type="text" name="keyword">
 																	</label>
 																</section>
 																<section class="col col-2">
@@ -672,7 +672,7 @@ $(document).ready(function() {
 							$("#checkout-form").append("<input value='"+email+"' type='hidden' name='mail_important'>");
 							$.ajax({
 								type: "POST",
-								url: "/bo/usuarios/afiliar_nuevo",
+								url: "/ov/perfil_red/afiliar_nuevo",
 								data: $('#checkout-form').serialize()
 								})
 								.done(function( msg ) {

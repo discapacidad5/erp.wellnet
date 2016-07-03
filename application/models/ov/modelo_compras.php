@@ -6,6 +6,8 @@ class modelo_compras extends CI_Model
 	{
 		parent::__construct();
 		$this->load->model('ov/model_perfil_red');
+		$this->load->model('/ov/general');
+		$this->load->model('/bo/bonos/afiliado');
 	}
 	
 	function get_red($id)
@@ -19,6 +21,83 @@ class modelo_compras extends CI_Model
 		c.descripcion sexo, d.descripcion edo_civil FROM users a, user_profiles b, cat_sexo c, cat_edo_civil d , afiliar e, tipo_red tr WHERE a.created>=NOW() - INTERVAL 1 MONTH 
 		and a.id=b.user_id and b.id_sexo=c.id_sexo and b.id_edo_civil=d.id_edo_civil and b.id_tipo_usuario=2 and e.id_afiliado=a.id and tr.id=e.id_red and e.debajo_de='.$id_usuario.'');
 		return $q->result();
+	}
+	
+	function is_afiliado_activo($id_afiliado,$fecha)
+	{
+				
+			if(($this->general->isActived($id_afiliado)==0)&&
+					(($this->general->isActivedAfiliacionesPuntosPersonales($id_afiliado,$fecha))==true)){
+				return true;
+			}
+	
+		return false;
+	}
+	
+	function reporte_afiliados_activos($id_afiliado,$fecha)
+	{
+		$usuario=new $this->afiliado;
+		$q=$this->db->query('select id,profundidad from tipo_red');
+		$redes= $q->result();
+		
+		$afiliadosEnLaRed=array();
+		
+		foreach ($redes as $red){
+			$usuario->getAfiliadosDebajoDe($id_afiliado,$red->id,"RED",0,$red->profundidad);
+			array_push($afiliadosEnLaRed, $usuario->getIdAfiliadosRed());
+		}
+
+		
+		$afiliadosActivos=array();
+
+		foreach ($afiliadosEnLaRed[0] as $afiliados){
+			
+			if(($this->general->isActived($afiliados)==0)&& 
+					(($this->general->isActivedAfiliacionesPuntosPersonales($afiliados,$fecha))==true)){
+				$q=$this->db->query('SELECT a.id, a.username usuario, b.nombre nombre, b.apellido apellido,a.email
+									FROM users a, user_profiles b WHERE a.id=b.user_id and b.id_tipo_usuario=2 and a.id='.$afiliados.'');
+				
+				$afiliado=$q->result();
+				array_push($afiliadosActivos,$afiliado);
+			}
+			
+		}
+
+		return $afiliadosActivos;
+	}
+	
+	function reporte_afiliados_inactivos($id_afiliado,$fecha)
+	{
+		$usuario=new $this->afiliado;
+		$q=$this->db->query('select id,profundidad from tipo_red');
+		$redes= $q->result();
+		 
+		$afiliadosEnLaRed=array();
+		
+		foreach ($redes as $red){
+			$usuario->getAfiliadosDebajoDe($id_afiliado,$red->id,"RED",0,$red->profundidad);
+			array_push($afiliadosEnLaRed, $usuario->getIdAfiliadosRed());
+		}
+
+		
+		$afiliadosActivos=array();
+
+		foreach ($afiliadosEnLaRed[0] as $afiliados){
+			
+			if(($this->general->isActived($afiliados)==0)&& 
+					(($this->general->isActivedAfiliacionesPuntosPersonales($afiliados,$fecha))==true)){
+
+			}else {
+				$q=$this->db->query('SELECT a.id, a.username usuario, b.nombre nombre, b.apellido apellido,a.email
+									FROM users a, user_profiles b WHERE a.id=b.user_id and b.id_tipo_usuario=2 and a.id='.$afiliados.'');
+				
+				$afiliado=$q->result();
+				array_push($afiliadosActivos,$afiliado);
+			}
+			
+		}
+
+		return $afiliadosActivos;
 	}
 	
 	function traer_afiliados($id)
@@ -119,7 +198,7 @@ where A.debajo_de = '.$id.' and A.id_afiliado = UP.user_id and A.id_afiliado = U
 	}
 	function get_productos_red($idCategoriaRed, $pais)
 	{
-		$q=$this->db->query('Select a.nombre, a.descripcion, b.id , b.costo, b.costo_publico, b.fecha_alta, d.descripcion grupo, d.id_grupo, a.nombre img,d.id_red 
+		$q=$this->db->query('Select a.nombre, a.descripcion, b.id , b.costo, b.costo_publico, b.fecha_alta, d.descripcion grupo, d.id_grupo, a.nombre img,d.id_red, b.puntos_comisionables 
 from producto a, mercancia b, cat_grupo_producto d
 where a.id=b.sku and d.id_grupo  = a.id_grupo and b.id_tipo_mercancia= 1 and b.estatus like "ACT" and (b.pais = "'.$pais.'" or b.pais = "AAA") and a.id_grupo='.$idCategoriaRed.' order by d.descripcion');
 		$produc =  $q->result();
@@ -177,7 +256,7 @@ where a.id=b.sku and d.id_grupo  = a.id_grupo and b.id_tipo_mercancia= 1 and b.e
 	
 	function get_servicios_red($idCategoriaRed,$pais)
 	{
-		$q=$this->db->query('Select a.nombre, a.descripcion, b.id, b.costo, b.costo_publico, b.fecha_alta, a.nombre img,a.id_red 
+		$q=$this->db->query('Select a.nombre, a.descripcion, b.id, b.costo, b.costo_publico, b.fecha_alta, a.nombre img,a.id_red, b.puntos_comisionables 
 		from servicio a, mercancia b
 		where a.id=b.sku and b.id_tipo_mercancia= 2 and b.estatus like "ACT" and a.id_red= '.$idCategoriaRed.' and (b.pais = "'.$pais.'" or b.pais = "AAA")');
 		$servicios_bd =  $q->result();
@@ -200,7 +279,7 @@ where a.id=b.sku and d.id_grupo  = a.id_grupo and b.id_tipo_mercancia= 1 and b.e
 	}
 	function get_combinados_red($idCategoriaRed,$pais)
 	{
-		$q=$this->db->query('SELECT d.id, a.nombre, a.descripcion, a.descuento, a.id id_combinado, d.costo, d.costo_publico,d.fecha_alta, a.nombre img, a.id_red from combinado a, mercancia d, cross_combinado
+		$q=$this->db->query('SELECT d.id, a.nombre, a.descripcion, a.descuento, a.id id_combinado, d.costo, d.costo_publico,d.fecha_alta,d.puntos_comisionables, a.nombre img, a.id_red from combinado a, mercancia d, cross_combinado
 		e where a.id=e.id_combinado and d.sku=a.id and d.estatus="ACT" and d.id_tipo_mercancia=3 and a.id_red='.$idCategoriaRed.' and (d.pais = "'.$pais.'" or d.pais = "AAA") group by (d.id)');
 		$combinados_bd =  $q->result();
 
@@ -209,7 +288,7 @@ where a.id=b.sku and d.id_grupo  = a.id_grupo and b.id_tipo_mercancia= 1 and b.e
 	
 	function get_paquetes_inscripcion_red($idCategoriaRed,$pais)
 	{
-		$q=$this->db->query('SELECT d.id, a.nombre, a.descripcion, a.id_paquete, d.costo, d.costo_publico,d.fecha_alta, a.nombre img, a.id_red 
+		$q=$this->db->query('SELECT d.id, a.nombre, a.descripcion, a.id_paquete, d.costo, d.costo_publico,d.fecha_alta,d.puntos_comisionables, a.nombre img, a.id_red 
 								from paquete_inscripcion a, mercancia d, cross_paquete
 								e where a.id_paquete=e.id_paquete 
 								and d.sku=a.id_paquete 
@@ -223,7 +302,7 @@ where a.id=b.sku and d.id_grupo  = a.id_grupo and b.id_tipo_mercancia= 1 and b.e
 	
 	function get_membresias_red($idCategoriaRed,$pais)
 	{
-		$q=$this->db->query('Select a.nombre, a.descripcion, b.id, b.costo, b.costo_publico, b.fecha_alta, a.nombre img,a.id_red
+		$q=$this->db->query('Select a.nombre, a.descripcion, b.id, b.costo, b.costo_publico, b.fecha_alta, a.nombre img,a.id_red,b.puntos_comisionables
 		from membresia a, mercancia b
 		where a.id=b.sku and b.id_tipo_mercancia= 5 and b.estatus like "ACT" and a.id_red= '.$idCategoriaRed.' and (b.pais = "'.$pais.'" or b.pais = "AAA")');
 		$membresia_bd =  $q->result();
@@ -584,7 +663,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 			"id_estatus"	=> 1
 		);
 		$this->db->insert("movimiento",$dato_mov);
-		$insert_mov=mysql_insert_id();
+		$insert_mov=$this->db->insert_id();
 		$dato_surtido=array(
 			"id_almacen_origen"	=> $origen,
 			"id_movimiento"		=> $insert_mov,
@@ -650,7 +729,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 			"id_metodo_pago" 	=> $_POST["pago"]
 		);
 		$this->db->insert("venta",$dato_venta);
-		$venta = mysql_insert_id();
+		$venta = $this->db->insert_id();
 		if($_GET["tipo"]==3)
 		{
 			$this->db->query("insert into autocompra (fecha,id_usuario) values ('".$_POST['startdate']."',".$id_user.")");
@@ -754,7 +833,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 			);
 		
 			$this->db->insert("movimiento",$dato_mov);
-			$insert_mov=mysql_insert_id();
+			$insert_mov=$this->db->insert_id();
 			$dato_surtido=array(
 				"id_almacen_origen"	=> $origen,
 				"id_movimiento"		=> $insert_mov,
@@ -974,7 +1053,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 				"fecha" 			=> $fecha
 		);
 		$this->db->insert("venta",$dato_venta);
-		$venta = mysql_insert_id();
+		$venta = $this->db->insert_id();
 		return $venta;*/
 	}
 	
@@ -1077,7 +1156,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 				"fecha" 			=> $fecha
 		);
 		$this->db->insert("venta",$dato_venta);
-		$venta = mysql_insert_id();
+		$venta = $this->db->insert_id();
 		return $venta;
 	}
 	
@@ -1089,7 +1168,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 				"fecha" 			=> $fecha
 		);
 		$this->db->insert("venta",$dato_venta);
-		$venta = mysql_insert_id();
+		$venta = $this->db->insert_id();
 		return $venta;
 	}
 	
@@ -1108,7 +1187,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 				"payment_method_name" => $medio_pago
 		);
 		$this->db->insert("pago_online_transaccion",$dato_venta);
-		$venta = mysql_insert_id();
+		$venta = $this->db->insert_id();
 		return $venta;
 	}
 	
@@ -1119,7 +1198,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 				"carrito"		=> $carrito
 		);
 		$this->db->insert("pago_online_proceso",$dato_venta);
-		$id_pago_proceso = mysql_insert_id();
+		$id_pago_proceso = $this->db->insert_id();
 		return $id_pago_proceso;
 	}
 	
@@ -1183,7 +1262,7 @@ where a.id_paquete = e.id_paquete and d.sku= a.id_paquete and d.estatus="ACT" an
 				);
 				
 				$this->db->insert("movimiento",$dato_mov);
-				$insert_mov = mysql_insert_id();
+				$insert_mov = $this->db->insert_id();
 				
 				$dato_surtido=array(
 						"id_almacen_origen"	=> $origen,

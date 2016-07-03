@@ -234,6 +234,43 @@ class configuracion extends CI_Controller
 		$this->template->build('website/bo/configuracion/pagosOnline/paypal');
 	}
 	
+	function Tucompra()
+	{
+		if (!$this->tank_auth->is_logged_in())
+		{																		// logged in
+			redirect('/auth');
+		}
+	
+		$id=$this->tank_auth->get_user_id();
+		$usuario=$this->general->get_username($id);
+	
+		if($usuario[0]->id_tipo_usuario!=1)
+		{
+			redirect('/auth/logout');
+		}
+	
+		$style=$this->modelo_dashboard->get_style($id);
+	
+		$this->template->set("style",$style);
+	
+		$tucompra  = $this->modelo_pagosonline->val_tucompra();
+		$this->template->set("tucompra",$tucompra);
+	
+		$this->template->set_theme('desktop');
+		$this->template->set_layout('website/main');
+		$this->template->set_partial('header', 'website/bo/header');
+		$this->template->set_partial('footer', 'website/bo/footer');
+		$this->template->build('website/bo/configuracion/pagosOnline/Tucompra');
+	}
+	
+	function actualizarTucompra()
+	{
+		$tucompra = $this->modelo_pagosonline->actualizar_tucompra();
+		echo $tucompra
+		? "Se ha actualizado los datos de Tucompra."
+				: "No se ha podido actualizar los datos de Tucompra.";
+	}
+	
 	function actualizarPayuLatam()
 	{
 		$payulatam = $this->modelo_pagosonline->actualizar_payulatam();
@@ -665,14 +702,14 @@ class configuracion extends CI_Controller
 					else {
 						$this->db->query('insert into archivo_soporte_tecnico (id_usuario,id_grupo,id_tipo,descripcion,ruta,status,nombre_publico,id_red)
 						values ('.$id.','.$_POST['grupo_frm'].',2,"'.$_POST['desc_frm'].'","'.$ruta.$key["file_name"].'","ACT","'.$_POST["nombre_publico"].'",'.$id_red.')');
-						$video=mysql_insert_id();
+						$video=$this->db->insert_id();
 					}
 				}
 				else
 				{
 					$this->db->query('insert into cat_img (url,nombre_completo,nombre,extencion,estatus)
 					values ("'.$ruta.$key["file_name"].'","'.$key["file_name"].'","'.$nombre.'","'.$extencion.'","ACT")');
-					$imgn=mysql_insert_id();
+					$imgn=$this->db->insert_id();
 				}
 	
 			}
@@ -768,11 +805,11 @@ class configuracion extends CI_Controller
 			{
 				$this->db->query('insert into cat_img (url,nombre_completo,nombre,extencion,estatus)
 				values ("'.$ruta.$data["upload_data"]["file_name"].'","'.$data["upload_data"]["file_name"].'","'.$nombre.'","'.$extencion.'","ACT")');
-				$imgn=mysql_insert_id();
+				$imgn=$this->db->insert_id();
 	
 				$this->db->query('insert into archivo_soporte_tecnico (id_usuario,id_grupo,id_tipo,descripcion,ruta,status,nombre_publico,id_red)
 				values ('.$id.','.$_POST['grupo_frm'].',21,"'.$_POST['desc_frm'].'","'.$_POST["url"].'","ACT","'.$_POST["nombre_publico"].'",'.$id_red.')');
-				$video=mysql_insert_id();
+				$video=$this->db->insert_id();
 				$this->db->query('insert into cross_img_archivo_soporte_tecnico	values ('.$video.','.$imgn.')');
 			}
 			redirect('/bo/configuracion/listar_videos?id_red='.$id_red);

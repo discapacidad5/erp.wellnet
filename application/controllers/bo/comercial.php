@@ -30,6 +30,7 @@ class comercial extends CI_Controller
 		$this->load->model('bo/model_mercancia');
 		$this->load->model('ov/modelo_compras');
 		$this->load->model('ov/modelo_billetera');
+		$this->load->model('bo/model_bonos');
 		$this->load->model('model_tipo_red');
 		$this->load->model('cemail');
 		
@@ -71,25 +72,48 @@ class comercial extends CI_Controller
 		//$style=$this->general->get_style($id);
 	
 		$redes = $this->model_tipo_red->listarTodos();
+		$redesUsuario = $this->model_tipo_red->RedesUsuario($id);
+		
 		$ganancias=array();
 		$comision_directos = array();
-		foreach ($redes as $red){
+		$bonos = array();		
+		
+		foreach ($redesUsuario as $red){
+			//$array_bono = $this->model_bonos->ver_total_bonos_id($id,$red->id,'');
+			//$array_ganancias = $this->modelo_billetera->get_comisiones($id,$red->id);
+			//$array_comision = $this->modelo_billetera->getComisionDirectos($id, $red->id);
+
+			array_push($bonos,$this->model_bonos->ver_total_bonos_id_red($id,$red->id));
 			array_push($ganancias,$this->modelo_billetera->get_comisiones($id,$red->id));
-			array_push($comision_directos, $this->modelo_billetera->getComisionDirectos($id, $red->id));
+			array_push($comision_directos,$this->modelo_billetera->getComisionDirectos($id, $red->id));
 		}
 		
-		$transaction = $this->modelo_billetera->get_total_transacciones_id($id);		
+		$comision_todo= array(
+				'directos' => $comision_directos,
+				'ganancias' => $ganancias,
+				'bonos' => $bonos,
+				'redes' => $redesUsuario
+		);
 		
 		$comisiones = $this->modelo_billetera->get_total_comisiones_afiliado($id);
 		$cobro=$this->modelo_billetera->get_cobros_total($id);
 		$cobroPendientes=$this->modelo_billetera->get_cobros_pendientes_total_afiliado($id);
 		$retenciones = $this->modelo_billetera->ValorRetencionesTotales($id);
+		$total_bonos = $this->model_bonos->ver_total_bonos_id($id);
+		
+		$transaction = $this->modelo_billetera->get_total_transacciones_id($id);	
+		
 		
 		$this->template->set("style",$style);
+		$this->template->set("usuario",$usuario);
 		$this->template->set("id",$id);
-		$this->template->set("transaction",$transaction);
+		$this->template->set("redes",$redesUsuario);
+		$this->template->set("bonos",$bonos);
+		$this->template->set("total_bonos",$total_bonos);
 		$this->template->set("comisiones",$comisiones);
+		$this->template->set("comision_todo",$comision_todo);
 		$this->template->set("ganancias",$ganancias);
+		$this->template->set("transaction",$transaction);
 		$this->template->set("comisiones_directos",$comision_directos);
 		$this->template->set("cobro",$cobro);
 		$this->template->set("cobroPendientes",$cobroPendientes);
@@ -1273,13 +1297,13 @@ class comercial extends CI_Controller
 				{
 					$this->db->query('insert into archivo (id_usuario,id_grupo,id_tipo,descripcion,ruta,status,nombre_publico) 
 					values ('.$id.','.$_POST['grupo_frm'].',2,"'.$_POST['desc_frm'].'","'.$ruta.$key["file_name"].'","ACT","'.$_POST["nombre_publico"].'")');
-					$video=mysql_insert_id();
+					$video=$this->db->insert_id();
 				}
 				else 
 				{
 					$this->db->query('insert into cat_img (url,nombre_completo,nombre,extencion,estatus) 
 					values ("'.$ruta.$key["file_name"].'","'.$key["file_name"].'","'.$nombre.'","'.$extencion.'","ACT")');
-					$imgn=mysql_insert_id();
+					$imgn=$this->db->insert_id();
 				}
 									
 			}
@@ -1338,11 +1362,11 @@ class comercial extends CI_Controller
 				//echo 'insert into noticia (id_usuario,nombre,contenido,imagen) values ('.$id.',"'.$_POST['nombre_frm'].'","'.$_POST['desc_frm'].'","'.$ruta.$_POST['file_nme'].'")';
 				$this->db->query('insert into cat_img (url,nombre_completo,nombre,extencion,estatus) 
 				values ("'.$ruta.$data["upload_data"]["file_name"].'","'.$data["upload_data"]["file_name"].'","'.$nombre.'","'.$extencion.'","ACT")');
-				$imgn=mysql_insert_id();
+				$imgn=$this->db->insert_id();
 				
 				$this->db->query('insert into archivo (id_usuario,id_grupo,id_tipo,descripcion,ruta,status,nombre_publico) 
 				values ('.$id.','.$_POST['grupo_frm'].',8,"'.$_POST['desc_frm'].'","'.$_POST["url"].'","ACT","'.$_POST["nombre_publico"].'")');
-				$video=mysql_insert_id();
+				$video=$this->db->insert_id();
 				$this->db->query('insert into cross_img_archivo	values ('.$video.','.$imgn.')');
 			}
 		}
@@ -1464,13 +1488,13 @@ class comercial extends CI_Controller
 				{
 					$this->db->query('insert into archivo (id_usuario,id_grupo,id_tipo,descripcion,ruta,status,nombre_publico) 
 					values ('.$id.','.$_POST['grupo_frm'].',1,"'.$_POST['desc_frm'].'","'.$ruta.$key["file_name"].'","ACT","'.$_POST["nombre_publico"].'")');
-					$ebook=mysql_insert_id();
+					$ebook=$this->db->insert_id();
 				}
 				else 
 				{
 					$this->db->query('insert into cat_img (url,nombre_completo,nombre,extencion,estatus) 
 					values ("'.$ruta.$key["file_name"].'","'.$key["file_name"].'","'.$nombre.'","'.$extencion.'","ACT")');
-					$imgn=mysql_insert_id();
+					$imgn=$this->db->insert_id();
 				}
 				
 					
@@ -1636,7 +1660,7 @@ class comercial extends CI_Controller
 		$this->db->query('insert into evento (id_tipo,id_color,id_usuario,nombre,descripcion,inicio,fin,lugar,costo,direccion,latitud,longitud,observaciones) 
 						values('.$tipo.','.$color.','.$id.',"'.$nombre.'","'.$desc.'","'.$inicio.'","'.$fin.'","'.$data["lugar"].'",'.$data["costo"].'
 						,"'.$data["direccion"].'","0.00000","0.00000","'.$data["observacion"].'")');
-		$id_evento=mysql_insert_id();
+		$id_evento=$this->db->insert_id();
 		$descripcion=$desc.'&nbspc;<a class="ver-mas-calendario" href="#" onclick="ver_evento('.$id_evento.')">Ver más</a>';
 		$this->db->query("update evento set descripcion='".$descripcion."' where id=".$id_evento);
 	}
@@ -2023,11 +2047,11 @@ class comercial extends CI_Controller
 		$keys=array_keys($data);
 		//print_r($keys);
 		$this->db->query('insert into encuesta (nombre,descripcion,id_usuario,estatus) values ("'.$data['nombre'].'","'.$data['desc'].'",'.$id_usuario.',"DES")');
-		$enc_id=mysql_insert_id();
+		$enc_id=$this->db->insert_id();
 		for($i=0;$i<$data['qty'];$i++)
 		{
 			$this->db->query('insert into encuesta_pregunta (id_encuesta,pregunta) values ('.$enc_id.',"'.$data[$keys[$i]]["pregunta"].'")');
-			$preg_id=mysql_insert_id();
+			$preg_id=$this->db->insert_id();
 			//print_r($data[$keys[$i]]);
 			//echo $data[$keys[$i]]["pregunta"];
 			$resp_keys=array_keys($data[$keys[$i]]["respuestas"]);
@@ -2427,7 +2451,7 @@ class comercial extends CI_Controller
 		
 		
 		$productos       = $this->model_admin->get_productos();
-		$servicios		 = $this->model_admin->get_servicios();
+		$servicios		 = $this->model_admin->get_servicios();//var_dump($servicios);exit();
 		//$promo			 = $this->model_admin->get_promo();
 		$combinados		 = $this->model_admin->get_combinados();
 		$paquete		 = $this->model_admin->get_paquetes();
