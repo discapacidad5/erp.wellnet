@@ -184,15 +184,27 @@ class titulo extends CI_Model
 			return $titulo[0]->id;
 		}
 		
+		$valorTituloActivo=$this->getTipoDeValorTitulo($id_afiliado,$titulo[0]->frecuencia,$titulo[0]->condicion_red_afilacion, $fechaActual, "PUNTOSP");
+		$valorTituloActivo-=150;
+		
+		
 		$valorTituloSiguiente=$titulo_siguiente[0]->valor;
+		
+		$AfiliadosSiguiente = $this->getAfiliadosTitulo($id_afiliado,1,'RED',$titulo_siguiente[0]->ganancia,$fechaActual);
+		$hasAfiliadosSiguiente = ($titulo_siguiente[0]->porcentaje<=$AfiliadosSiguiente) ? false : true;
+		//echo $id_afiliado==1002 ? ($orden+1).":".$valorTituloActivo."|".$valorTituloSiguiente."|".$hasAfiliadosSiguiente."<br/>" : "";//exit();
+			
+		
 		$valorTituloAfiliado=$this->getTipoDeValorTitulo($id_afiliado,$titulo[0]->frecuencia,$titulo[0]->condicion_red_afilacion, $fechaActual, $titulo[0]->tipo);
-
-		$valorTituloAfiliado=(($valorTituloAfiliado*$titulo[0]->porcentaje)/100);
+		$Afiliados = $this->getAfiliadosTitulo($id_afiliado,1,'RED',$titulo[0]->ganancia,$fechaActual);		
+		$hasAfiliados = ($titulo[0]->porcentaje<=$Afiliados&&$valorTituloActivo>=0) ? true : false;		
+		//echo $id_afiliado==1002 ? $orden.":".$valorTituloActivo."|".$valorTituloAfiliado."|".$Afiliados."<br/>" : "";//exit();
+		$valorTituloAfiliado+=(($valorTituloActivo)<0) ? 0 : $valorTituloActivo;
 		
 		if($valorTitulo>$valorTituloAfiliado)
 			return 0;
 
-		if(($valorTitulo<=$valorTituloAfiliado)&&($valorTituloAfiliado<$valorTituloSiguiente))
+		if(($valorTitulo<=$valorTituloAfiliado)&&($hasAfiliados)&&($hasAfiliadosSiguiente))
 			return $idValorTitulo;
 		
 		return $this->getTituloAlcanzadoAfiliado($id_afiliado,($orden+1),$fechaActual);
@@ -309,5 +321,41 @@ class titulo extends CI_Model
 		return $this;
 	}
 	
+	public function getAfiliadosTitulo($id_afiliado, $red, $tipo, $titulo,$fecha) {
+		$count=0;
+		if($tipo=='DIRECTOS'){
+			$q=$this->db->query("select count(*) as directos
+			from afiliar A
+			where A.directo = ".$id_afiliado." and A.id_red = ".$red);
+			$datos= $q->result();
+		}else {
+			$q=$this->db->query("select A.id_afiliado
+                        from afiliar A
+                        where A.debajo_de = ".$id_afiliado." and A.id_red = ".$red);
+	
+			$datos= $q->result();
+		}
+	
+		foreach ($datos as $dato){
+			if ($dato!=NULL){
+				$id = $dato->id_afiliado;
+				
+				if($titulo == 0){
+					$activo = $this->getTipoDeValorTitulo($id,"MES","EQU", $fecha, "PUNTOSP");
+					($activo>=150) ? $count++ : '';
+				}else{
+					$tituloAfiliado = $this->getTituloAlcanzadoAfiliado($id,$titulo,$fecha);
+					($titulo <= $tituloAfiliado) ? $count++ : '';
+					//echo $id."|".$titulo."|".$tituloAfiliado."<br/>";
+				}
+				
+				
+				$count+=$this->getAfiliadosTitulo($id,$red,$tipo,$titulo,$fecha);
+			}
+		}
+	
+		return $count;
+	
+	}
 	
 }

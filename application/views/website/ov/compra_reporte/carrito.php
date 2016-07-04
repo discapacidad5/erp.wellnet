@@ -442,11 +442,10 @@
 					type: "get",
 					url: "show_todos_categoria",
 					data: { id: idTipoRed},
-					success:function(msg){
+				}).done(function(msg){
 						FinalizarSpinner();
 						$("#mercancias").html(msg);
 				
-					}
 				});
 			}
 					
